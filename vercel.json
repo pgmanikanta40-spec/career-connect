@@ -1,13 +1,71 @@
 {
-  "cleanUrls": false,
+  "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/jobs",
+      "destination": "/#jobs",
+      "permanent": false
+    },
+    {
+      "source": "/companies",
+      "destination": "/#companies",
+      "permanent": false
+    },
+    {
+      "source": "/saved",
+      "destination": "/#saved",
+      "permanent": false
+    },
+    {
+      "source": "/news",
+      "destination": "/#news",
+      "permanent": false
+    },
+    {
+      "source": "/about",
+      "destination": "/#about",
+      "permanent": false
+    },
+    {
+      "source": "/contact",
+      "destination": "/#contact",
+      "permanent": false
+    },
+    {
+      "source": "/apply",
+      "destination": "/#apply",
+      "permanent": false
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=3600, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(?:js|css|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot)$",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
