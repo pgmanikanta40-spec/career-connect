@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="CareerConnect logo">
+  <defs>
+    <linearGradient id="mark" x1="78" x2="436" y1="68" y2="454" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1f6feb"/>
+      <stop offset="1" stop-color="#00a88f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#mark)"/>
+  <path d="M140 282c0-72 54-127 126-127 50 0 87 24 107 62l-63 34c-8-20-23-32-45-32-35 0-57 27-57 63s22 63 57 63c23 0 39-12 47-32l62 34c-21 38-58 62-108 62-72 0-126-55-126-127Z" fill="#fff"/>
+  <path d="M143 166h228v56H143z" fill="#d7fff8" opacity=".92"/>
+</svg>
