@@ -1,0 +1,171 @@
+import { initRouter, renderRoute, icon } from "./router.js";
+import { getActiveJobById } from "./api.js";
+import {
+  getPreferredTheme,
+  setPreferredTheme,
+  getSavedJobIds,
+  isJobSaved,
+  toggleSavedJob,
+  removeSavedJob
+} from "./storage.js";
+
+const themeToggle = document.querySelector("[data-theme-toggle]");
+const themeIcon = document.querySelector("[data-theme-icon]");
+const navToggle = document.querySelector("[data-nav-toggle]");
+const navMenu = document.querySelector("[data-nav-menu]");
+const toast = document.querySelector("[data-toast]");
+let toastTimer = 0;
+
+function themeGlyph(theme) {
+  if (theme === "dark") {
+    return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0 9 7.3A9 9 0 1 1 12 3Z"/></svg>';
+  }
+  return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+}
+
+function filledBookmark() {
+  return '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>';
+}
+
+function applyTheme(theme) {
+  const nextTheme = setPreferredTheme(theme);
+  if (themeIcon) {
+    themeIcon.innerHTML = themeGlyph(nextTheme);
+  }
+  if (themeToggle) {
+    themeToggle.setAttribute("aria-label", nextTheme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    themeToggle.setAttribute("title", nextTheme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  }
+}
+
+function updateSavedCount() {
+  const count = getSavedJobIds().length;
+  document.querySelectorAll("[data-saved-count]").forEach((element) => {
+    element.textContent = String(count);
+    element.toggleAttribute("hidden", count === 0);
+  });
+}
+
+function updateSaveButtons(jobId) {
+  const saved = isJobSaved(jobId);
+  document.querySelectorAll("[data-save-job]").forEach((button) => {
+    if (button.dataset.saveJob !== jobId) {
+      return;
+    }
+
+    button.classList.toggle("is-saved", saved);
+    button.setAttribute("aria-label", saved ? "Remove saved job" : "Save job");
+    button.setAttribute("title", saved ? "Remove saved job" : "Save job");
+
+    if (button.classList.contains("icon-button")) {
+      button.innerHTML = saved ? filledBookmark() : icon("bookmark");
+    } else {
+      button.innerHTML = `${saved ? filledBookmark() : icon("bookmark")}${saved ? "Saved" : "Save job"}`;
+    }
+  });
+}
+
+function showToast(message) {
+  if (!toast) {
+    return;
+  }
+
+  window.clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  toast.classList.add("is-visible");
+
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+    toast.hidden = true;
+  }, 2600);
+}
+
+function closeNavigation() {
+  if (!navToggle || !navMenu) {
+    return;
+  }
+  navToggle.setAttribute("aria-expanded", "false");
+  navMenu.classList.remove("is-open");
+  document.body.classList.remove("nav-open");
+}
+
+function setupNavigation() {
+  if (navToggle && navMenu) {
+    navToggle.addEventListener("click", () => {
+      const expanded = navToggle.getAttribute("aria-expanded") === "true";
+      navToggle.setAttribute("aria-expanded", String(!expanded));
+      navMenu.classList.toggle("is-open", !expanded);
+      document.body.classList.toggle("nav-open", !expanded);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-nav-link], .footer-links a, .brand")) {
+      closeNavigation();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeNavigation();
+    }
+  });
+}
+
+function setupGlobalActions() {
+  document.addEventListener("click", (event) => {
+    const saveButton = event.target.closest("[data-save-job]");
+    if (saveButton) {
+      event.preventDefault();
+      const jobId = saveButton.dataset.saveJob;
+      const result = toggleSavedJob(getActiveJobById(jobId) || jobId);
+      updateSaveButtons(jobId);
+      updateSavedCount();
+      showToast(result.saved ? "Job saved to your shortlist." : "Job removed from saved jobs.");
+      if (window.location.hash.startsWith("#saved")) {
+        renderRoute();
+      }
+      return;
+    }
+
+    const removeButton = event.target.closest("[data-remove-saved]");
+    if (removeButton) {
+      event.preventDefault();
+      removeSavedJob(removeButton.dataset.removeSaved);
+      updateSavedCount();
+      showToast("Job removed from your shortlist.");
+      renderRoute();
+    }
+  });
+}
+
+function setupTheme() {
+  applyTheme(getPreferredTheme());
+
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      applyTheme(current === "dark" ? "light" : "dark");
+    });
+  }
+}
+
+window.addEventListener("careerconnect:notify", (event) => {
+  if (event.detail?.message) {
+    showToast(event.detail.message);
+  }
+});
+window.addEventListener("careerconnect:route-rendered", updateSavedCount);
+window.addEventListener("storage", (event) => {
+  if (event.key && event.key.includes("careerconnect")) {
+    updateSavedCount();
+  }
+});
+
+document.documentElement.classList.add("js");
+setupTheme();
+setupNavigation();
+setupGlobalActions();
+updateSavedCount();
+initRouter();

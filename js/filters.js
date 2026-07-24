@@ -1,0 +1,268 @@
+import { filterJobs, sortJobs, getFilterOptions } from "./jobs.js";
+
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function optionList(values, selectedValue) {
+  return values
+    .filter(Boolean)
+    .map((value) => `<option value="${escapeHTML(value)}"${value === selectedValue ? " selected" : ""}>${escapeHTML(value)}</option>`)
+    .join("");
+}
+
+function salaryOptions(selectedValue) {
+  return [
+    ["", "Any salary"],
+    ["60000", "$60k+"],
+    ["90000", "$90k+"],
+    ["120000", "$120k+"],
+    ["150000", "$150k+"],
+    ["180000", "$180k+"]
+  ].map(([value, label]) => `<option value="${value}"${value === selectedValue ? " selected" : ""}>${label}</option>`).join("");
+}
+
+function experienceOptions(selectedValue) {
+  return [
+    ["", "Any experience"],
+    ["0", "Entry friendly"],
+    ["2", "2+ years"],
+    ["4", "4+ years"],
+    ["6", "6+ years"],
+    ["8", "8+ years"]
+  ].map(([value, label]) => `<option value="${value}"${value === selectedValue ? " selected" : ""}>${label}</option>`).join("");
+}
+
+export function getInitialFilters(params = new URLSearchParams()) {
+  return {
+    keyword: params.get("keyword") || params.get("query") || "",
+    query: params.get("keyword") || params.get("query") || "",
+    location: params.get("location") || "",
+    company: params.get("company") || "",
+    category: params.get("category") || "",
+    jobType: params.get("jobType") || params.get("employmentType") || "",
+    workplace: params.get("workplace") || "",
+    salary: params.get("salary") || "",
+    experience: params.get("experience") || "",
+    sort: params.get("sort") || "newest"
+  };
+}
+
+export function renderFilterPanel(jobs, filters = {}, apiState = {}) {
+  const options = getFilterOptions(jobs);
+
+  return `
+    <form class="filters-panel live-filters" data-job-filter-form aria-label="Search and filter live jobs">
+      <div class="filter-heading">
+        <div>
+          <h2>Search jobs</h2>
+          <p>${apiState.source === "local" ? "Local fallback data" : "Live jobs feed"}</p>
+        </div>
+        <button class="text-button" type="button" data-clear-filters>Clear</button>
+      </div>
+
+      <label class="field search-field">
+        <span>Keyword</span>
+        <input data-filter-input data-remote-field type="search" name="keyword" value="${escapeHTML(filters.keyword)}" placeholder="Title, skill, category" autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span>Location</span>
+        <input data-filter-input data-remote-field list="locations-list" name="location" value="${escapeHTML(filters.location)}" placeholder="City, state, remote">
+        <datalist id="locations-list">${optionList(options.locations, "")}</datalist>
+      </label>
+
+      <label class="field">
+        <span>Company</span>
+        <input data-filter-input data-remote-field list="companies-list" name="company" value="${escapeHTML(filters.company)}" placeholder="Company name">
+        <datalist id="companies-list">${optionList(options.companies, "")}</datalist>
+      </label>
+
+      <div class="filter-grid">
+        <label class="field">
+          <span>Job Type</span>
+          <select data-filter-input name="jobType">
+            <option value="">Any type</option>
+            ${optionList(options.jobTypes, filters.jobType)}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Experience</span>
+          <select data-filter-input data-remote-field name="experience">
+            ${experienceOptions(filters.experience)}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Salary</span>
+          <select data-filter-input name="salary">
+            ${salaryOptions(filters.salary)}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Work model</span>
+          <select data-filter-input name="workplace">
+            <option value="">Any model</option>
+            ${optionList(options.workplaces, filters.workplace)}
+          </select>
+        </label>
+      </div>
+    </form>
+  `;
+}
+
+export function renderSortSelect(filters = {}) {
+  const sortOptions = [
+    ["newest", "Newest"],
+    ["oldest", "Oldest"],
+    ["salary-asc", "Salary Low to High"],
+    ["salary-desc", "Salary High to Low"],
+    ["company", "Company Name"]
+  ];
+
+  return `
+    <label class="sort-field">
+      <span>Sort</span>
+      <select data-job-sort>
+        ${sortOptions.map(([value, label]) => `<option value="${value}"${filters.sort === value ? " selected" : ""}>${label}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
+export function readFilters(root) {
+  const form = root.querySelector("[data-job-filter-form]");
+  const sortSelect = root.querySelector("[data-job-sort]");
+  const data = form ? new FormData(form) : new FormData();
+  const keyword = String(data.get("keyword") || "").trim();
+
+  return {
+    keyword,
+    query: keyword,
+    location: String(data.get("location") || "").trim(),
+    company: String(data.get("company") || "").trim(),
+    category: String(data.get("category") || "").trim(),
+    jobType: String(data.get("jobType") || "").trim(),
+    workplace: String(data.get("workplace") || "").trim(),
+    salary: String(data.get("salary") || "").trim(),
+    experience: String(data.get("experience") || "").trim(),
+    sort: sortSelect ? sortSelect.value : "newest"
+  };
+}
+
+export function applyFilters(jobs, filters) {
+  return sortJobs(filterJobs(jobs, filters), filters.sort);
+}
+
+function filtersToParams(filters) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (!value || key === "query" || (key === "sort" && value === "newest")) {
+      return;
+    }
+    params.set(key, value);
+  });
+  return params;
+}
+
+export function updateJobsHash(filters) {
+  const params = filtersToParams(filters);
+  history.replaceState(null, "", `#jobs${params.toString() ? `?${params.toString()}` : ""}`);
+}
+
+export function summarizeFilters(filters) {
+  const labels = [];
+  if (filters.keyword) labels.push(`"${filters.keyword}"`);
+  if (filters.location) labels.push(filters.location);
+  if (filters.company) labels.push(filters.company);
+  if (filters.salary) labels.push(`salary from $${Math.round(Number(filters.salary) / 1000)}k`);
+  if (filters.experience) labels.push(filters.experience === "0" ? "entry friendly" : `${filters.experience}+ years`);
+  if (filters.jobType) labels.push(filters.jobType);
+  if (filters.workplace) labels.push(filters.workplace);
+  return labels.length ? `Filtered by ${labels.join(", ")}` : "Showing all available roles";
+}
+
+export function setupRealtimeFilters({ root, getJobs, renderResults, onRemoteSearch, canUseLiveProvider }) {
+  const form = root.querySelector("[data-job-filter-form]");
+  const sortSelect = root.querySelector("[data-job-sort]");
+  let localTimer = 0;
+  let remoteTimer = 0;
+  let lastNoResultSignature = "";
+
+  if (!form || !sortSelect) {
+    return;
+  }
+
+  function renderLocal() {
+    const filters = readFilters(root);
+    const filtered = applyFilters(getJobs(), filters);
+    renderResults(filtered, filters);
+    updateJobsHash(filters);
+
+    const signature = JSON.stringify(filters);
+    if (!filtered.length && signature !== lastNoResultSignature) {
+      lastNoResultSignature = signature;
+      window.dispatchEvent(new CustomEvent("careerconnect:notify", { detail: { message: "Search returned no results. Try widening the filters." } }));
+    }
+  }
+
+  function queueLocal() {
+    window.clearTimeout(localTimer);
+    localTimer = window.setTimeout(renderLocal, 120);
+  }
+
+  function queueRemote() {
+    if (!canUseLiveProvider || typeof onRemoteSearch !== "function") {
+      return;
+    }
+    window.clearTimeout(remoteTimer);
+    remoteTimer = window.setTimeout(() => {
+      onRemoteSearch(readFilters(root));
+    }, 650);
+  }
+
+  root.addEventListener("input", (event) => {
+    if (event.target.matches("[data-filter-input]")) {
+      queueLocal();
+      if (event.target.matches("[data-remote-field]")) {
+        queueRemote();
+      }
+    }
+  });
+
+  root.addEventListener("change", (event) => {
+    if (event.target.matches("[data-filter-input], [data-job-sort]")) {
+      renderLocal();
+      if (event.target.matches("[data-remote-field]")) {
+        queueRemote();
+      }
+    }
+  });
+
+  root.addEventListener("submit", (event) => {
+    if (event.target === form) {
+      event.preventDefault();
+      renderLocal();
+      queueRemote();
+    }
+  });
+
+  root.addEventListener("click", (event) => {
+    const clearButton = event.target.closest("[data-clear-filters]");
+    if (!clearButton) {
+      return;
+    }
+
+    form.reset();
+    sortSelect.value = "newest";
+    renderLocal();
+    form.querySelector('input[name="keyword"]')?.focus();
+  });
+}

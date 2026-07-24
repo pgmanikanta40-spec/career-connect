@@ -1,0 +1,82 @@
+const fallbackNewsUrl = "data/news.json";
+
+function readConfig() {
+  try {
+    return {
+      ...JSON.parse(localStorage.getItem("careerconnect.apiConfig") || "{}"),
+      ...(window.CAREERCONNECT_CONFIG || {})
+    };
+  } catch (error) {
+    return window.CAREERCONNECT_CONFIG || {};
+  }
+}
+
+function asDate(value) {
+  const date = new Date(value || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function normalizeArticle(article, index, source = "gnews") {
+  return {
+    id: `${source}-${index}-${Date.parse(article.publishedAt || article.published_at || Date.now())}`,
+    title: article.title || "Recruitment update",
+    description: article.description || article.content || "Latest hiring and technology news.",
+    source: article.source?.name || article.source || "News Source",
+    url: article.url || "https://www.linkedin.com/business/talent/blog",
+    image: article.image || article.urlToImage || "assets/images/og-cover.svg",
+    publishedAt: asDate(article.publishedAt || article.published_at),
+    category: article.category || "Hiring News"
+  };
+}
+
+async function fallbackNews(message = "Using local hiring news.", notify = true) {
+  const response = await fetch(fallbackNewsUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Unable to load local news.");
+  }
+  const articles = await response.json();
+  return {
+    articles: articles.map((article, index) => normalizeArticle(article, index, "local-news")),
+    source: "local",
+    isFallback: true,
+    message,
+    notify
+  };
+}
+
+export async function fetchHiringNews(query = "recruitment hiring technology jobs") {
+  const config = readConfig();
+
+  if (!config.gnewsApiKey) {
+    return fallbackNews("Showing curated local hiring news.", false);
+  }
+
+  try {
+    const params = new URLSearchParams({
+      q: query,
+      lang: "en",
+      country: "us",
+      max: "8",
+      apikey: config.gnewsApiKey
+    });
+    const response = await fetch(`https://gnews.io/api/v4/search?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(response.status === 429 ? "GNews API limit reached." : "GNews API unavailable.");
+    }
+    const payload = await response.json();
+    const articles = (payload.articles || []).map((article, index) => normalizeArticle(article, index, "gnews"));
+    if (!articles.length) {
+      return fallbackNews("GNews returned no articles, so local hiring news was loaded.", true);
+    }
+    return {
+      articles,
+      source: "gnews",
+      isFallback: false,
+      message: `${articles.length} live hiring news articles loaded.`,
+      notify: true
+    };
+  } catch (error) {
+    console.warn(error);
+    return fallbackNews(error.message || "Live news is unavailable, so local hiring news was loaded.", true);
+  }
+}

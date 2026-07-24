@@ -1,0 +1,332 @@
+let cachedJobs = null;
+
+export const companyDirectory = {
+  "atlasworks": { website: "https://www.linkedin.com/jobs/search/?keywords=AtlasWorks", latitude: 40.7128, longitude: -74.006, location: "New York, NY" },
+  "nimbus-cloud": { website: "https://www.linkedin.com/jobs/search/?keywords=Nimbus%20Cloud", latitude: 47.6062, longitude: -122.3321, location: "Seattle, WA" },
+  "quantum-grid": { website: "https://www.linkedin.com/jobs/search/?keywords=Quantum%20Grid", latitude: 30.2672, longitude: -97.7431, location: "Austin, TX" },
+  "bloom-retail": { website: "https://www.linkedin.com/jobs/search/?keywords=Bloom%20Retail", latitude: 41.8781, longitude: -87.6298, location: "Chicago, IL" },
+  "finpeak": { website: "https://www.linkedin.com/jobs/search/?keywords=FinPeak", latitude: 42.3601, longitude: -71.0589, location: "Boston, MA" },
+  "carebridge-health": { website: "https://www.linkedin.com/jobs/search/?keywords=CareBridge%20Health", latitude: 36.1627, longitude: -86.7816, location: "Nashville, TN" },
+  "orbit-logistics": { website: "https://www.linkedin.com/jobs/search/?keywords=Orbit%20Logistics", latitude: 32.7767, longitude: -96.797, location: "Dallas, TX" },
+  "greenline-energy": { website: "https://www.linkedin.com/jobs/search/?keywords=Greenline%20Energy", latitude: 39.7392, longitude: -104.9903, location: "Denver, CO" },
+  "lumina-studio": { website: "https://www.linkedin.com/jobs/search/?keywords=Lumina%20Studio", latitude: 34.0522, longitude: -118.2437, location: "Los Angeles, CA" },
+  "civic-data-lab": { website: "https://www.linkedin.com/jobs/search/?keywords=Civic%20Data%20Lab", latitude: 38.9072, longitude: -77.0369, location: "Washington, DC" },
+  "harbor-legal": { website: "https://www.linkedin.com/jobs/search/?keywords=Harbor%20Legal", latitude: 39.9526, longitude: -75.1652, location: "Philadelphia, PA" },
+  "skillforge-academy": { website: "https://www.linkedin.com/jobs/search/?keywords=SkillForge%20Academy", latitude: 35.7796, longitude: -78.6382, location: "Raleigh, NC" },
+  "prism-analytics": { website: "https://www.linkedin.com/jobs/search/?keywords=Prism%20Analytics", latitude: 37.7749, longitude: -122.4194, location: "San Francisco, CA" },
+  "mednova-labs": { website: "https://www.linkedin.com/jobs/search/?keywords=MedNova%20Labs", latitude: 32.7157, longitude: -117.1611, location: "San Diego, CA" },
+  "catalyst-works": { website: "https://www.linkedin.com/jobs/search/?keywords=Catalyst%20Works", latitude: 42.3314, longitude: -83.0458, location: "Detroit, MI" }
+};
+
+const locationCoordinates = {
+  "New York, NY": [40.7128, -74.006],
+  "Seattle, WA": [47.6062, -122.3321],
+  "Austin, TX": [30.2672, -97.7431],
+  "Chicago, IL": [41.8781, -87.6298],
+  "Boston, MA": [42.3601, -71.0589],
+  "Nashville, TN": [36.1627, -86.7816],
+  "Dallas, TX": [32.7767, -96.797],
+  "Denver, CO": [39.7392, -104.9903],
+  "Los Angeles, CA": [34.0522, -118.2437],
+  "Washington, DC": [38.9072, -77.0369],
+  "Philadelphia, PA": [39.9526, -75.1652],
+  "Raleigh, NC": [35.7796, -78.6382],
+  "San Francisco, CA": [37.7749, -122.4194],
+  "San Diego, CA": [32.7157, -117.1611],
+  "Detroit, MI": [42.3314, -83.0458],
+  "Remote, United States": [39.8283, -98.5795],
+  "Portland, OR": [45.5152, -122.6784],
+  "Newark, NJ": [40.7357, -74.1724],
+  "Memphis, TN": [35.1495, -90.049],
+  "Phoenix, AZ": [33.4484, -112.074],
+  "Cleveland, OH": [41.4993, -81.6944]
+};
+
+const moneyFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0
+});
+
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
+
+function clean(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function slugify(value) {
+  return clean(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "company";
+}
+
+function getCoordinates(job) {
+  if (Number.isFinite(job.latitude) && Number.isFinite(job.longitude)) {
+    return { latitude: job.latitude, longitude: job.longitude };
+  }
+  const company = companyDirectory[job.companyId] || {};
+  if (Number.isFinite(company.latitude) && Number.isFinite(company.longitude)) {
+    return { latitude: company.latitude, longitude: company.longitude };
+  }
+  const coordinates = locationCoordinates[job.location] || locationCoordinates[job.companyLocation];
+  if (coordinates) {
+    return { latitude: coordinates[0], longitude: coordinates[1] };
+  }
+  return { latitude: 39.8283, longitude: -98.5795 };
+}
+
+function inferWorkplace(job) {
+  const text = clean([job.title, job.location, job.description, job.workplace].join(" "));
+  if (text.includes("remote")) return "Remote";
+  if (text.includes("hybrid")) return "Hybrid";
+  return job.workplace || "On-site";
+}
+
+function inferApplicationLink(job) {
+  if (job.applicationLink) return job.applicationLink;
+  const query = encodeURIComponent(`${job.title} ${job.company}`);
+  return `https://www.linkedin.com/jobs/search/?keywords=${query}`;
+}
+
+export function enrichJob(job, source = "local") {
+  const companyId = job.companyId || slugify(job.company);
+  const companyProfile = companyDirectory[companyId] || {};
+  const coordinates = getCoordinates({ ...job, companyId });
+
+  return {
+    ...job,
+    id: job.id || `${source}-${slugify(job.company)}-${slugify(job.title)}-${Date.now()}`,
+    source,
+    companyId,
+    companyLogo: job.companyLogo || "assets/logo.png",
+    companyLocation: job.companyLocation || companyProfile.location || job.location || "United States",
+    companySize: job.companySize || "Hiring team",
+    companyDescription: job.companyDescription || `${job.company} is hiring active roles through CareerConnect's live jobs feed.`,
+    website: job.website || companyProfile.website || inferApplicationLink(job),
+    category: job.category || "General",
+    employmentType: job.employmentType || job.jobType || "Full-time",
+    jobType: job.jobType || job.employmentType || "Full-time",
+    workplace: inferWorkplace(job),
+    salaryMin: Number(job.salaryMin) || 0,
+    salaryMax: Number(job.salaryMax) || 0,
+    currency: job.currency || "$",
+    experienceMin: Number.isFinite(Number(job.experienceMin)) ? Number(job.experienceMin) : 0,
+    experienceMax: Number.isFinite(Number(job.experienceMax)) ? Number(job.experienceMax) : 20,
+    postedDate: job.postedDate || new Date().toISOString().slice(0, 10),
+    applicationLink: inferApplicationLink(job),
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+    responsibilities: Array.isArray(job.responsibilities) && job.responsibilities.length ? job.responsibilities : ["Review the role details and apply through the employer's application link.", "Collaborate with the hiring team through the posted recruitment workflow."],
+    requirements: Array.isArray(job.requirements) && job.requirements.length ? job.requirements : ["Relevant experience for the role.", "Strong communication, ownership, and problem-solving skills."],
+    skills: Array.isArray(job.skills) && job.skills.length ? job.skills : [job.category || "General", job.employmentType || "Full-time"],
+    benefits: Array.isArray(job.benefits) && job.benefits.length ? job.benefits : ["Employer-provided benefits may vary by role and location."]
+  };
+}
+
+export async function loadJobs() {
+  if (cachedJobs) {
+    return cachedJobs;
+  }
+
+  const response = await fetch("data/jobs.json", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Unable to load jobs data.");
+  }
+
+  const jobs = await response.json();
+  cachedJobs = jobs.map((job) => enrichJob(job, "local"));
+  return cachedJobs;
+}
+
+export async function getJobById(jobId) {
+  const jobs = await loadJobs();
+  return jobs.find((job) => job.id === jobId) || null;
+}
+
+export function formatSalary(job) {
+  if (!job.salaryMin && !job.salaryMax) {
+    return "Salary not disclosed";
+  }
+  if (!job.salaryMin) {
+    return `Up to ${job.currency}${moneyFormatter.format(job.salaryMax)}`;
+  }
+  if (!job.salaryMax) {
+    return `${job.currency}${moneyFormatter.format(job.salaryMin)}+`;
+  }
+  return `${job.currency}${moneyFormatter.format(job.salaryMin)} - ${job.currency}${moneyFormatter.format(job.salaryMax)}`;
+}
+
+export function formatCompactSalary(value, currency = "$") {
+  return `${currency}${Math.round(Number(value) / 1000)}k`;
+}
+
+export function formatExperience(job) {
+  if (!Number.isFinite(Number(job.experienceMin)) || !Number.isFinite(Number(job.experienceMax))) {
+    return "Experience varies";
+  }
+  if (job.experienceMin === 0) {
+    return `Entry to ${job.experienceMax} years`;
+  }
+  return `${job.experienceMin}-${job.experienceMax} years`;
+}
+
+export function formatDate(value) {
+  return dateFormatter.format(new Date(`${value}T00:00:00`));
+}
+
+export function getLatestJobs(jobs, count = 6) {
+  return [...jobs]
+    .sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate))
+    .slice(0, count);
+}
+
+export function getCompanies(jobs) {
+  const companies = new Map();
+
+  jobs.forEach((job) => {
+    if (!companies.has(job.companyId)) {
+      companies.set(job.companyId, {
+        id: job.companyId,
+        name: job.company,
+        logo: job.companyLogo,
+        industry: job.industry,
+        location: job.companyLocation,
+        size: job.companySize,
+        founded: job.founded,
+        description: job.companyDescription,
+        website: job.website,
+        latitude: job.latitude,
+        longitude: job.longitude,
+        jobs: []
+      });
+    }
+    companies.get(job.companyId).jobs.push(job);
+  });
+
+  return [...companies.values()]
+    .map((company) => ({
+      ...company,
+      openJobs: company.jobs.length,
+      categories: [...new Set(company.jobs.map((job) => job.category))].sort()
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getCompanyById(jobs, companyId) {
+  return getCompanies(jobs).find((company) => company.id === companyId) || null;
+}
+
+export function getCategoryStats(jobs) {
+  const counts = jobs.reduce((accumulator, job) => {
+    accumulator[job.category] = (accumulator[job.category] || 0) + 1;
+    return accumulator;
+  }, {});
+
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+export function getFilterOptions(jobs) {
+  const unique = (field) => [...new Set(jobs.map((job) => job[field]))].sort((a, b) => a.localeCompare(b));
+
+  return {
+    locations: unique("location"),
+    categories: unique("category"),
+    companies: unique("company"),
+    jobTypes: unique("jobType"),
+    employmentTypes: unique("employmentType"),
+    workplaces: unique("workplace")
+  };
+}
+
+export function filterJobs(jobs, filters = {}) {
+  const query = clean(filters.query);
+  const company = clean(filters.company);
+  const salary = Number(filters.salary || 0);
+  const experience = filters.experience === "" || filters.experience == null ? null : Number(filters.experience);
+
+  return jobs.filter((job) => {
+    if (query) {
+      const searchable = [
+        job.title,
+        job.company,
+        job.location,
+        job.category,
+        job.industry,
+        job.employmentType,
+        job.workplace,
+        ...job.skills
+      ].join(" ");
+
+      if (!clean(searchable).includes(query)) {
+        return false;
+      }
+    }
+
+    if (filters.location && !clean(job.location).includes(clean(filters.location))) {
+      return false;
+    }
+
+    if (filters.category && job.category !== filters.category) {
+      return false;
+    }
+
+    if (filters.employmentType && job.employmentType !== filters.employmentType) {
+      return false;
+    }
+
+    if (filters.jobType && job.jobType !== filters.jobType && job.employmentType !== filters.jobType) {
+      return false;
+    }
+
+    if (filters.workplace && job.workplace !== filters.workplace) {
+      return false;
+    }
+
+    if (company && !clean(job.company).includes(company)) {
+      return false;
+    }
+
+    if (salary && job.salaryMax && job.salaryMax < salary) {
+      return false;
+    }
+
+    if (experience !== null && job.experienceMax < experience) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function sortJobs(jobs, sortBy = "newest") {
+  const sorted = [...jobs];
+
+  switch (sortBy) {
+    case "oldest":
+      return sorted.sort((a, b) => new Date(a.postedDate) - new Date(b.postedDate));
+    case "salary-asc":
+      return sorted.sort((a, b) => a.salaryMin - b.salaryMin);
+    case "salary-desc":
+      return sorted.sort((a, b) => b.salaryMax - a.salaryMax);
+    case "company":
+      return sorted.sort((a, b) => a.company.localeCompare(b.company) || a.title.localeCompare(b.title));
+    case "newest":
+    default:
+      return sorted.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate));
+  }
+}
+
+export function getHiringStats(jobs) {
+  const companies = getCompanies(jobs);
+  const remoteJobs = jobs.filter((job) => job.workplace === "Remote").length;
+  const categories = getCategoryStats(jobs).length;
+
+  return {
+    jobs: jobs.length,
+    companies: companies.length,
+    remoteJobs,
+    categories
+  };
+}

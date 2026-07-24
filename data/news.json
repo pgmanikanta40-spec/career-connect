@@ -1,0 +1,62 @@
+[
+  {
+    "id": "news-001",
+    "title": "Hiring teams prioritize skills-based screening in competitive roles",
+    "description": "Recruiters are increasingly emphasizing demonstrable skills, portfolio evidence, and structured assessments to reduce hiring friction.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.linkedin.com/business/talent/blog",
+    "image": "assets/images/og-cover.svg",
+    "publishedAt": "2026-07-23T09:00:00Z",
+    "category": "Recruitment"
+  },
+  {
+    "id": "news-002",
+    "title": "Hybrid roles remain prominent across technology and operations teams",
+    "description": "Employers continue to use hybrid work policies to widen candidate pools while preserving office collaboration for selected workflows.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.indeed.com/hire/c/info",
+    "image": "assets/images/hero-recruitment.svg",
+    "publishedAt": "2026-07-22T12:30:00Z",
+    "category": "Workplace"
+  },
+  {
+    "id": "news-003",
+    "title": "Recruitment dashboards move from reporting to real-time decision support",
+    "description": "Talent teams are using dashboards to monitor pipeline health, new jobs, popular categories, and source effectiveness in one place.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.linkedin.com/business/talent/blog",
+    "image": "assets/images/screenshot-jobs.svg",
+    "publishedAt": "2026-07-21T14:20:00Z",
+    "category": "Analytics"
+  },
+  {
+    "id": "news-004",
+    "title": "Technology hiring demand grows around security, cloud, and data roles",
+    "description": "Security operations, cloud reliability, and data engineering remain core hiring priorities for teams modernizing digital infrastructure.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.indeed.com/career-advice/finding-a-job",
+    "image": "assets/images/screenshot-home.svg",
+    "publishedAt": "2026-07-20T11:15:00Z",
+    "category": "Technology"
+  },
+  {
+    "id": "news-005",
+    "title": "Candidate experience becomes a major differentiator for employer brands",
+    "description": "Clear salary ranges, accessible applications, transparent job details, and responsive communication are shaping candidate decisions.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.linkedin.com/business/talent/blog",
+    "image": "assets/images/og-cover.svg",
+    "publishedAt": "2026-07-19T08:45:00Z",
+    "category": "Employer Brand"
+  },
+  {
+    "id": "news-006",
+    "title": "Local search and job alerts help candidates manage higher application volume",
+    "description": "Candidates are combining saved roles, live filters, and location-based search to focus on roles that match their goals.",
+    "source": "CareerConnect Insights",
+    "url": "https://www.indeed.com/career-advice",
+    "image": "assets/images/hero-recruitment.svg",
+    "publishedAt": "2026-07-18T10:10:00Z",
+    "category": "Job Search"
+  }
+]
